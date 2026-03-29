@@ -1,7 +1,15 @@
-# -------------------------------------------------
-# Variables
-# -------------------------------------------------
-$notebookName = "2026 03 JOB"  # Notebook to count sections in
+<#
+.SYNOPSIS
+Counts the number of sections in a specified OneNote notebook.
+
+.PARAMETER NotebookName
+The display name of the OneNote notebook to count sections for.
+#>
+
+param (
+    [Parameter(Mandatory=$true)]
+    [string]$NotebookName
+)
 
 # -------------------------------------------------
 # Connect to Microsoft Graph
@@ -12,10 +20,10 @@ Connect-MgGraph -Scopes "Notes.Read"
 # Get the notebook
 # -------------------------------------------------
 $notebook = Get-MgUserOnenoteNotebook -UserId "me" -All |
-    Where-Object { $_.DisplayName -eq $notebookName }
+    Where-Object { $_.DisplayName -eq $NotebookName } | Select-Object -First 1
 
 if (-not $notebook) {
-    Write-Host "Notebook '$notebookName' not found"
+    Write-Host "Notebook '$NotebookName' not found"
     exit 1
 }
 
@@ -25,4 +33,4 @@ if (-not $notebook) {
 $sections = Get-MgUserOnenoteNotebookSection -UserId "me" -NotebookId $notebook.Id -All
 $sectionCount = $sections.Count
 
-Write-Host "Notebook '$notebookName' has $sectionCount sections."
+Write-Host "Notebook '$NotebookName' has $sectionCount sections."
