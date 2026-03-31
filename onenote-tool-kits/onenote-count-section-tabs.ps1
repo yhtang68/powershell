@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Counts the number of sections in a specified OneNote notebook.
+Counts total, rejected, and open sections in a specified OneNote notebook.
 
 .PARAMETER NotebookName
 The display name of the OneNote notebook to count sections for.
@@ -20,7 +20,8 @@ Connect-MgGraph -Scopes "Notes.Read"
 # Get the notebook
 # -------------------------------------------------
 $notebook = Get-MgUserOnenoteNotebook -UserId "me" -All |
-    Where-Object { $_.DisplayName -eq $NotebookName } | Select-Object -First 1
+    Where-Object { $_.DisplayName -eq $NotebookName } |
+    Select-Object -First 1
 
 if (-not $notebook) {
     Write-Host "Notebook '$NotebookName' not found"
@@ -28,9 +29,25 @@ if (-not $notebook) {
 }
 
 # -------------------------------------------------
-# Count sections
+# Get sections
 # -------------------------------------------------
 $sections = Get-MgUserOnenoteNotebookSection -UserId "me" -NotebookId $notebook.Id -All
-$sectionCount = $sections.Count
 
-Write-Host "Notebook '$NotebookName' has $sectionCount sections."
+# Total
+$total = $sections.Count
+
+# Rejected (section name starts with "(x)")
+$rejected = ($sections | Where-Object {
+    $_.DisplayName -match '^\(x\)'
+}).Count
+
+# Open = total - rejected
+$open = $total - $rejected
+
+# -------------------------------------------------
+# Output
+# -------------------------------------------------
+Write-Host "Notebook '$NotebookName':"
+Write-Host "  Total Jobs     : $total"
+Write-Host "  Rejected       : $rejected"
+Write-Host "  Open           : $open"
