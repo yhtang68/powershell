@@ -25,6 +25,32 @@ param (
     [string]$JqlQuery = "parent=JOB-5 ORDER BY rank"
 )
 
+# --- Helper: flatten ADF (Atlassian Document Format) to plain text ---
+function Get-PlainTextFromADF($ADFNode) {
+    if (-not $ADFNode) { return "" }
+
+    $text = ""
+
+    switch ($ADFNode.type) {
+        "text" { if ($ADFNode.text) { $text += $ADFNode.text } }
+        "inlineCard" { if ($ADFNode.attrs.url) { $text += $ADFNode.attrs.url } }
+        "hardBreak" { $text += "`n" }
+        "mention" { 
+            if ($ADFNode.attrs.text) { $text += $ADFNode.attrs.text } 
+            elseif ($ADFNode.attrs.user.displayName) { $text += $ADFNode.attrs.user.displayName } 
+        }
+        default { }
+    }
+
+    if ($ADFNode.content) {
+        foreach ($child in $ADFNode.content) {
+            $text += Get-PlainTextFromADF $child
+        }
+    }
+
+    return $text
+}
+
 # --- Load credentials (nested JSON) ---
 if (-Not (Test-Path $JiraCredFilePath)) {
     Write-Error "Credential file not found: $JiraCredFilePath"
@@ -66,14 +92,33 @@ if (-not $SearchResponse.issues) {
     exit
 }
 
-# --- Loop through issues ---
-foreach ($Issue in $SearchResponse.issues) {
-    $Key = $Issue.key
-    $Description = $Issue.fields.description
+# --- Ensure issues is treated as an array ---
+$IssuesArray = @($SearchResponse.issues)
+$TotalReturned = $IssuesArray.Count
 
-    if ([string]::IsNullOrWhiteSpace($Description) -or $Description.Length -lt 100) {
-        Write-Host "❌ Issue ${Key}: Description may have missing data (length = $($Description.Length))"
+Write-Host "`nTotal issues returned by JQL '$JqlQuery': $TotalReturned`n"
+
+# --- Loop through issues and check description length ---
+$MissingCount = 0
+
+foreach ($Issue in $IssuesArray) {
+    $Key = $Issue.key
+    $DescriptionADF = $Issue.fields.description
+    $PlainDescription = Get-PlainTextFromADF $DescriptionADF
+    $Length = $PlainDescription.Length
+
+    if ($Length -lt 100) {
+        Write-Host "❌ Issue ${Key}: Description may have missing data (length = $Length)"
+        $MissingCount++
     } else {
-        Write-Host "✅ Issue ${Key}: Description is sufficient (length = $($Description.Length))"
+        Write-Host "✅ Issue ${Key}: Description is sufficient (length = $Length)"
     }
 }
+
+# --- Summary ---
+$SufficientCount = $TotalReturned - $MissingCount
+
+Write-Host "`nSummary:"
+Write-Host "Total issues returned: $TotalReturned"
+Write-Host "Issues with missing description (<100 chars): $MissingCount"
+Write-Host "Issues with sufficient description: $SufficientCount"
