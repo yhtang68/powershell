@@ -118,7 +118,11 @@ foreach ($Issue in $IssuesArray) {
 # --- Summary ---
 $SufficientCount = $TotalReturned - $MissingCount
 
+# Calculate percentages
+$MissingPercent = [math]::Round(($MissingCount / $TotalReturned) * 100, 2)
+$SufficientPercent = 100 - $MissingPercent
+
 Write-Host "`nSummary:"
 Write-Host "Total issues returned: $TotalReturned"
-Write-Host "Issues with missing description (<100 chars): $MissingCount"
-Write-Host "Issues with sufficient description: $SufficientCount"
+Write-Host "Issues with missing description (<100 chars): $MissingCount ($MissingPercent`%)"
+Write-Host "Issues with sufficient description: $SufficientCount ($SufficientPercent`%)"
